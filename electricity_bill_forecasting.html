@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ElectriFore — Electricity Bill Forecasting</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --panel2: #161d2e;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #00ff9d;
+    --text: #e8edf5;
+    --muted: #6b7a99;
+    --danger: #ff4757;
+    --warning: #ffa502;
+    --success: #2ed573;
+    --glow: 0 0 20px rgba(0,212,255,0.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index:0;
+  }
+
+  .wrapper { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:0 20px; }
+
+  /* HEADER */
+  header {
+    padding: 28px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 36px;
+  }
+  .header-inner {
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .logo {
+    display:flex; align-items:center; gap:12px;
+  }
+  .logo-icon {
+    width:42px; height:42px;
+    background: linear-gradient(135deg, var(--accent), #0066ff);
+    border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px;
+    box-shadow: 0 0 20px rgba(0,212,255,0.4);
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow:0 0 20px rgba(0,212,255,0.4); }
+    50%      { box-shadow:0 0 35px rgba(0,212,255,0.7); }
+  }
+  .logo-text { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; }
+  .logo-text span { color:var(--accent); }
+  .badge {
+    font-family:'DM Mono',monospace; font-size:11px;
+    background: rgba(0,212,255,0.08); border:1px solid rgba(0,212,255,0.2);
+    color:var(--accent); padding:4px 10px; border-radius:20px; letter-spacing:1px;
+  }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family:'Syne',sans-serif; font-size:13px; font-weight:600;
+    letter-spacing:2px; text-transform:uppercase; color:var(--muted);
+    margin-bottom:16px;
+  }
+
+  /* GRID */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+
+  /* PANEL */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius:16px;
+    padding:24px;
+    transition: border-color 0.3s;
+  }
+  .panel:hover { border-color: rgba(0,212,255,0.2); }
+
+  /* STAT CARDS */
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius:14px;
+    padding:18px 20px;
+    position:relative; overflow:hidden;
+    transition: all 0.3s;
+  }
+  .stat-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    background: var(--card-accent, var(--accent));
+    opacity:0.7;
+  }
+  .stat-card:hover { transform:translateY(-2px); border-color:rgba(0,212,255,0.25); }
+  .stat-label { font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; font-family:'DM Mono',monospace; }
+  .stat-value { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; line-height:1; }
+  .stat-sub { font-size:12px; color:var(--muted); margin-top:6px; }
+
+  /* INPUT SECTION */
+  .input-section { margin-bottom:28px; }
+  .input-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .input-group { display:flex; flex-direction:column; gap:8px; }
+  label { font-size:12px; color:var(--muted); letter-spacing:0.8px; font-family:'DM Mono',monospace; }
+  input[type=number], select {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius:10px;
+    font-size:15px;
+    font-family:'DM Sans',sans-serif;
+    outline:none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width:100%;
+    -moz-appearance:textfield;
+  }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
+  input[type=number]:focus, select:focus {
+    border-color:var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+  }
+  select option { background:var(--panel2); }
+
+  /* HISTORY TABLE */
+  .history-grid {
+    display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-bottom:14px;
+  }
+  .history-cell {
+    background: var(--panel2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 8px; text-align:center;
+    transition:all 0.2s;
+  }
+  .history-cell:hover { border-color:var(--accent); }
+  .history-cell label { font-size:10px; margin-bottom:4px; display:block; }
+  .history-cell input {
+    background:transparent; border:none; text-align:center;
+    color:var(--text); font-size:14px; font-family:'Syne',sans-serif; font-weight:700;
+    width:100%; padding:0;
+  }
+  .history-cell input:focus { outline:none; color:var(--accent); }
+
+  /* BUTTON */
+  .btn {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:14px 28px; border-radius:10px; border:none;
+    font-family:'Syne',sans-serif; font-size:15px; font-weight:700;
+    cursor:pointer; transition:all 0.25s; letter-spacing:0.5px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #0077ff);
+    color:#000;
+    box-shadow: 0 4px 20px rgba(0,212,255,0.3);
+  }
+  .btn-primary:hover {
+    transform:translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,212,255,0.5);
+  }
+  .btn-primary:active { transform:translateY(0); }
+  .btn-ghost {
+    background:transparent; border:1px solid var(--border);
+    color:var(--muted); font-size:13px; padding:10px 18px;
+  }
+  .btn-ghost:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* PREDICTION RESULT */
+  #result-section { display:none; animation: fadeUp 0.5s ease; }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(20px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .prediction-card {
+    background: linear-gradient(135deg, rgba(0,212,255,0.05), rgba(0,100,255,0.08));
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius:20px; padding:32px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:relative; overflow:hidden;
+    box-shadow: 0 0 40px rgba(0,212,255,0.08);
+  }
+  .prediction-card::before {
+    content:'';
+    position:absolute; top:-50%; right:-10%;
+    width:300px; height:300px;
+    background: radial-gradient(circle, rgba(0,212,255,0.06), transparent 70%);
+    pointer-events:none;
+  }
+  .pred-amount {
+    font-family:'Syne',sans-serif;
+    font-size:64px; font-weight:800;
+    background: linear-gradient(135deg, #ffffff, var(--accent));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    line-height:1;
+  }
+  .pred-meta { color:var(--muted); font-size:13px; margin-top:8px; font-family:'DM Mono',monospace; }
+  .pred-interval {
+    background: rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.2);
+    border-radius:8px; padding:8px 16px;
+    font-family:'DM Mono',monospace; font-size:13px; color:var(--accent);
+    margin-top:10px; display:inline-block;
+  }
+  .confidence-bar-wrap { margin-top:12px; }
+  .conf-label { font-size:11px; color:var(--muted); margin-bottom:6px; font-family:'DM Mono',monospace; }
+  .bar-bg { background:rgba(255,255,255,0.06); border-radius:4px; height:6px; overflow:hidden; }
+  .bar-fill {
+    height:100%; border-radius:4px;
+    background: linear-gradient(90deg, var(--accent), #00ff9d);
+    transition: width 1s cubic-bezier(.22,1,.36,1);
+  }
+
+  /* ALERT */
+  .alert-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:10px 18px; border-radius:30px; font-size:13px; font-weight:600;
+    font-family:'DM Mono',monospace;
+  }
+  .alert-badge.green { background:rgba(46,213,115,0.1); border:1px solid rgba(46,213,115,0.3); color:var(--success); }
+  .alert-badge.red   { background:rgba(255,71,87,0.1); border:1px solid rgba(255,71,87,0.3); color:var(--danger); }
+  .alert-badge.orange{ background:rgba(255,165,2,0.1); border:1px solid rgba(255,165,2,0.3); color:var(--warning); }
+  .dot { width:8px; height:8px; border-radius:50%; background:currentColor; animation:blink 1.5s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* BREAKDOWN */
+  .breakdown-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.04);
+    font-size:14px;
+  }
+  .breakdown-row:last-child { border:none; }
+  .breakdown-slab { color:var(--muted); font-family:'DM Mono',monospace; font-size:12px; }
+  .breakdown-amt { font-family:'Syne',sans-serif; font-weight:700; }
+
+  /* TIPS */
+  .tip-item {
+    display:flex; gap:12px; align-items:flex-start;
+    padding:12px; border-radius:10px;
+    background:rgba(255,255,255,0.02); border:1px solid var(--border);
+    margin-bottom:8px; transition:all 0.2s;
+  }
+  .tip-item:hover { border-color:rgba(0,255,157,0.2); background:rgba(0,255,157,0.03); }
+  .tip-icon { font-size:18px; flex-shrink:0; margin-top:1px; }
+  .tip-text { font-size:13px; color:var(--muted); line-height:1.6; }
+  .tip-text strong { color:var(--text); }
+
+  /* CHART */
+  .chart-wrap { position:relative; height:220px; }
+
+  /* APPLIANCE METER */
+  .appliance-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .app-item {
+    background:var(--panel2); border:1px solid var(--border);
+    border-radius:10px; padding:12px;
+  }
+  .app-name { font-size:12px; color:var(--muted); margin-bottom:6px; font-family:'DM Mono',monospace; }
+  .app-bar-bg { background:rgba(255,255,255,0.06); border-radius:3px; height:5px; }
+  .app-bar-fill { height:100%; border-radius:3px; transition:width 1s ease; }
+  .app-val { font-family:'Syne',sans-serif; font-weight:700; font-size:14px; margin-top:5px; }
+
+  /* TABS */
+  .tabs { display:flex; gap:4px; margin-bottom:20px; }
+  .tab {
+    padding:8px 18px; border-radius:8px; border:1px solid transparent;
+    font-size:13px; cursor:pointer; font-family:'DM Mono',monospace;
+    transition:all 0.2s; color:var(--muted); background:transparent;
+  }
+  .tab.active { background:rgba(0,212,255,0.1); border-color:rgba(0,212,255,0.3); color:var(--accent); }
+  .tab:hover:not(.active) { border-color:var(--border); color:var(--text); }
+
+  /* FOOTER */
+  footer {
+    margin-top:60px; padding:24px 0;
+    border-top:1px solid var(--border);
+    text-align:center; color:var(--muted); font-size:12px;
+    font-family:'DM Mono',monospace; letter-spacing:0.5px;
+  }
+
+  /* LOADER */
+  .loader { display:none; }
+  .loader.active {
+    display:inline-block; width:18px; height:18px;
+    border:2px solid rgba(0,0,0,0.3); border-top-color:#000;
+    border-radius:50%; animation:spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* RESPONSIVE */
+  @media(max-width:768px){
+    .grid-3,.input-grid,.grid-4 { grid-template-columns:1fr 1fr; }
+    .pred-amount { font-size:44px; }
+    .prediction-card { flex-direction:column; gap:20px; }
+    .history-grid { grid-template-columns:repeat(3,1fr); }
+    .appliance-grid { grid-template-columns:1fr; }
+  }
+  @media(max-width:480px){
+    .grid-2,.grid-3,.input-grid,.grid-4 { grid-template-columns:1fr; }
+    .history-grid { grid-template-columns:repeat(2,1fr); }
+  }
+
+  /* number highlight */
+  .num { font-family:'DM Mono',monospace; }
+  .tag {
+    font-size:11px; font-family:'DM Mono',monospace;
+    background:rgba(0,212,255,0.08); border:1px solid rgba(0,212,255,0.15);
+    color:var(--accent); padding:2px 8px; border-radius:4px; letter-spacing:0.5px;
+  }
+
+  .divider { border:none; border-top:1px solid var(--border); margin:24px 0; }
+  .mb16 { margin-bottom:16px; }
+  .mb24 { margin-bottom:24px; }
+  .mb8  { margin-bottom:8px; }
+  .flex { display:flex; align-items:center; }
+  .flex-between { display:flex; align-items:center; justify-content:space-between; }
+  .gap8 { gap:8px; }
+  .gap12 { gap:12px; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">⚡</div>
+        <div>
+          <div class="logo-text">Electri<span>Fore</span></div>
+          <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px;">Electricity Bill Forecasting</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <span class="badge">ML POWERED</span>
+        <span class="badge" style="color:var(--accent3);border-color:rgba(0,255,157,0.2);background:rgba(0,255,157,0.06);">v1.0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOP STATS -->
+  <div class="grid-4 mb24" id="top-stats">
+    <div class="stat-card" style="--card-accent:#00d4ff">
+      <div class="stat-label">Avg Monthly</div>
+      <div class="stat-value num" id="stat-avg">—</div>
+      <div class="stat-sub">kWh consumed</div>
+    </div>
+    <div class="stat-card" style="--card-accent:#ff6b35">
+      <div class="stat-label">Peak Month</div>
+      <div class="stat-value num" id="stat-peak">—</div>
+      <div class="stat-sub">highest usage</div>
+    </div>
+    <div class="stat-card" style="--card-accent:#00ff9d">
+      <div class="stat-label">Last Bill</div>
+      <div class="stat-value num" id="stat-last">—</div>
+      <div class="stat-sub">₹ estimated</div>
+    </div>
+    <div class="stat-card" style="--card-accent:#a855f7">
+      <div class="stat-label">Trend</div>
+      <div class="stat-value num" id="stat-trend">—</div>
+      <div class="stat-sub">vs. 3-month avg</div>
+    </div>
+  </div>
+
+  <!-- INPUT PANEL -->
+  <div class="panel mb24">
+    <div class="flex-between mb16">
+      <div class="section-title" style="margin-bottom:0">Historical Consumption Data</div>
+      <button class="btn btn-ghost" onclick="loadSampleData()">Load Sample</button>
+    </div>
+    <div class="section-title mb8" style="color:var(--muted);font-size:10px;">ENTER MONTHLY UNITS (kWh) — LAST 6 MONTHS</div>
+    <div class="history-grid" id="history-grid"></div>
+
+    <hr class="divider"/>
+
+    <div class="section-title mb8">Current Month Parameters</div>
+    <div class="input-grid mb16">
+      <div class="input-group">
+        <label>CURRENT READING (kWh so far)</label>
+        <input type="number" id="current-kwh" value="180" min="0" max="2000"/>
+      </div>
+      <div class="input-group">
+        <label>DAYS ELAPSED THIS MONTH</label>
+        <input type="number" id="days-elapsed" value="18" min="1" max="31"/>
+      </div>
+      <div class="input-group">
+        <label>TARIFF SLAB (₹/kWh base)</label>
+        <select id="tariff-type">
+          <option value="wb">West Bengal (WBSEDCL)</option>
+          <option value="delhi">Delhi (BSES/TPDDL)</option>
+          <option value="mumbai">Mumbai (Adani/BEST)</option>
+          <option value="custom">Custom Flat Rate</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>HOUSEHOLD SIZE</label>
+        <select id="household-size">
+          <option value="1">1–2 people</option>
+          <option value="2" selected>3–4 people</option>
+          <option value="3">5+ people</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>AC / HEATER UNITS</label>
+        <select id="ac-usage">
+          <option value="0">None</option>
+          <option value="1">1 unit (moderate)</option>
+          <option value="2" selected>1 unit (heavy)</option>
+          <option value="3">2+ units</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>YOUR BUDGET (₹/month)</label>
+        <input type="number" id="budget" value="1500" min="0"/>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;">
+      <button class="btn btn-primary" id="predict-btn" onclick="runForecast()">
+        <span id="btn-text">⚡ Forecast My Bill</span>
+        <span class="loader" id="btn-loader"></span>
+      </button>
+      <button class="btn btn-ghost" onclick="resetForm()">Reset</button>
+    </div>
+  </div>
+
+  <!-- RESULT SECTION -->
+  <div id="result-section">
+
+    <!-- PREDICTION CARD -->
+    <div class="prediction-card mb24">
+      <div>
+        <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:1.5px;margin-bottom:10px;">PREDICTED BILL AMOUNT</div>
+        <div class="pred-amount" id="pred-amount">₹0</div>
+        <div class="pred-meta">Forecast for <span id="pred-month">next month</span> · <span id="pred-units">0</span> kWh predicted</div>
+        <div class="pred-interval" id="pred-interval">± ₹0 confidence range</div>
+        <div class="confidence-bar-wrap">
+          <div class="conf-label">MODEL CONFIDENCE</div>
+          <div class="bar-bg"><div class="bar-fill" id="conf-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div id="alert-badge" class="alert-badge green" style="margin-bottom:12px;">
+          <span class="dot"></span>
+          <span id="alert-text">Within budget</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;">Budget: ₹<span id="budget-display">—</span></div>
+        <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px;">Overage: <span id="overage-text" style="color:var(--accent)">—</span></div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb24" style="gap:16px">
+
+      <!-- CHART -->
+      <div class="panel">
+        <div class="flex-between mb16">
+          <div class="section-title" style="margin-bottom:0">Consumption Trend</div>
+          <span class="tag">6+1 MONTHS</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="usageChart"></canvas>
+        </div>
+      </div>
+
+      <!-- BILL BREAKDOWN -->
+      <div class="panel">
+        <div class="section-title mb16">Bill Breakdown (Slab Tariff)</div>
+        <div id="breakdown-list"></div>
+        <hr class="divider"/>
+        <div class="breakdown-row">
+          <div style="font-weight:700;">Total Estimated</div>
+          <div class="breakdown-amt" id="breakdown-total" style="color:var(--accent);font-size:20px;">₹0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- APPLIANCE CONTRIBUTION + TIPS -->
+    <div class="grid-2 mb24" style="gap:16px">
+      <div class="panel">
+        <div class="section-title mb16">Estimated Appliance Load</div>
+        <div class="appliance-grid" id="appliance-grid"></div>
+      </div>
+      <div class="panel">
+        <div class="section-title mb16">Energy Saving Tips</div>
+        <div id="tips-list"></div>
+      </div>
+    </div>
+
+  </div><!-- /result-section -->
+
+</div><!-- /wrapper -->
+
+<footer>
+  <div class="wrapper">
+    Brainware University · CSE-AIML · Electricity Bill Forecasting System · 2025–26
+    <br/>Sankhajit Ghosh · Sonai Chaterjee · MD. Selimur Rahaman · Aniket Sandhaki · Spandan Jana
+  </div>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────
+//  TARIFF STRUCTURES (India)
+// ─────────────────────────────────────────────
+const TARIFFS = {
+  wb: {
+    name: "WBSEDCL (West Bengal)",
+    slabs: [
+      { upto:  25,  rate: 3.50, name:"0–25 units"   },
+      { upto:  50,  rate: 4.25, name:"26–50 units"  },
+      { upto: 100,  rate: 5.50, name:"51–100 units" },
+      { upto: 200,  rate: 6.50, name:"101–200 units"},
+      { upto: 9999, rate: 7.75, name:"201+ units"   }
+    ],
+    fixed: 50, fuel: 0.55
+  },
+  delhi: {
+    name: "Delhi BSES",
+    slabs: [
+      { upto: 200,  rate: 4.50, name:"0–200 units"  },
+      { upto: 400,  rate: 6.00, name:"201–400 units"},
+      { upto: 800,  rate: 7.00, name:"401–800 units"},
+      { upto: 9999, rate: 8.50, name:"801+ units"   }
+    ],
+    fixed: 65, fuel: 0.75
+  },
+  mumbai: {
+    name: "Adani / BEST (Mumbai)",
+    slabs: [
+      { upto: 100,  rate: 3.00, name:"0–100 units"  },
+      { upto: 300,  rate: 5.60, name:"101–300 units"},
+      { upto: 9999, rate: 8.70, name:"301+ units"   }
+    ],
+    fixed: 80, fuel: 0.60
+  },
+  custom: {
+    name: "Custom Rate",
+    slabs: [{ upto: 9999, rate: 6.00, name:"All units" }],
+    fixed: 40, fuel: 0.50
+  }
+};
+
+// ─────────────────────────────────────────────
+//  MONTHS
+// ─────────────────────────────────────────────
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const now = new Date();
+let historyData = [210, 240, 195, 225, 260, 230];
+let chartInstance = null;
+
+// ─────────────────────────────────────────────
+//  BUILD HISTORY INPUTS
+// ─────────────────────────────────────────────
+function buildHistoryGrid(){
+  const grid = document.getElementById('history-grid');
+  grid.innerHTML = '';
+  for(let i=5; i>=0; i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-1-i, 1);
+    const label = MONTH_NAMES[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2);
+    const cell = document.createElement('div');
+    cell.className = 'history-cell';
+    cell.innerHTML = `<label>${label}</label><input type="number" id="h${5-i}" value="${historyData[5-i]}" min="0" max="2000" onchange="updateStats()"/>`;
+    grid.appendChild(cell);
+  }
+}
+
+function getHistory(){
+  return Array.from({length:6}, (_,i) => parseFloat(document.getElementById('h'+i).value)||0);
+}
+
+// ─────────────────────────────────────────────
+//  SAMPLE DATA
+// ─────────────────────────────────────────────
+function loadSampleData(){
+  const samples = [210, 240, 195, 225, 260, 230];
+  samples.forEach((v,i) => { const el=document.getElementById('h'+i); if(el) el.value=v; });
+  document.getElementById('current-kwh').value = 180;
+  document.getElementById('days-elapsed').value = 18;
+  document.getElementById('budget').value = 1500;
+  updateStats();
+}
+
+// ─────────────────────────────────────────────
+//  UPDATE TOP STATS
+// ─────────────────────────────────────────────
+function updateStats(){
+  const h = getHistory();
+  const avg = (h.reduce((a,b)=>a+b,0)/h.length).toFixed(0);
+  const peak = Math.max(...h);
+  const tariff = TARIFFS[document.getElementById('tariff-type').value];
+  const lastBill = calcBill(h[5], tariff);
+  const last3avg = (h[3]+h[4]+h[5])/3;
+  const trend = (((h[5]-last3avg)/last3avg)*100).toFixed(1);
+
+  document.getElementById('stat-avg').textContent = avg;
+  document.getElementById('stat-peak').textContent = peak;
+  document.getElementById('stat-last').textContent = '₹'+lastBill.total.toFixed(0);
+  const trendEl = document.getElementById('stat-trend');
+  trendEl.textContent = (trend>0?'+':'')+trend+'%';
+  trendEl.style.color = trend > 5 ? 'var(--danger)' : trend < -5 ? 'var(--success)' : 'var(--accent)';
+}
+
+// ─────────────────────────────────────────────
+//  BILL CALCULATOR (tiered tariff)
+// ─────────────────────────────────────────────
+function calcBill(units, tariff){
+  let remaining = units, total = 0, breakdown = [];
+  let prev = 0;
+  for(const slab of tariff.slabs){
+    if(remaining <= 0) break;
+    const range = slab.upto - prev;
+    const consumed = Math.min(remaining, range);
+    const charge = consumed * slab.rate;
+    if(consumed > 0) breakdown.push({ name:slab.name, units:consumed, rate:slab.rate, charge });
+    total += charge;
+    remaining -= consumed;
+    prev = slab.upto;
+  }
+  const fixed = tariff.fixed;
+  const fuel  = units * tariff.fuel;
+  total += fixed + fuel;
+  return { total, breakdown, fixed, fuel };
+}
+
+// ─────────────────────────────────────────────
+//  ML FORECAST (linear regression + seasonal adjustment)
+// ─────────────────────────────────────────────
+function forecastKWH(history, currentKWH, daysElapsed, acUsage, householdSize){
+  const n = history.length;
+  // Weighted moving average (recent months weighted more)
+  const weights = [0.05,0.08,0.10,0.15,0.22,0.40];
+  let wma = 0;
+  history.forEach((v,i) => wma += v * weights[i]);
+
+  // Linear trend
+  let sumX=0,sumY=0,sumXY=0,sumX2=0;
+  history.forEach((v,i)=>{ sumX+=i; sumY+=v; sumXY+=i*v; sumX2+=i*i; });
+  const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+  const intercept = (sumY - slope*sumX)/n;
+  const linearPred = intercept + slope*n;
+
+  // Extrapolate current month reading
+  const dailyRate = currentKWH / daysElapsed;
+  const projectedCurrent = dailyRate * 30;
+
+  // Blend: 40% weighted MA, 30% linear, 30% projection
+  let pred = 0.40*wma + 0.30*linearPred + 0.30*projectedCurrent;
+
+  // AC/Heater bump
+  const acBump = [0, 35, 70, 120];
+  pred += acBump[Math.min(parseInt(acUsage),3)];
+
+  // Household size factor
+  const sizeFactor = [1, 1.15, 1.30];
+  pred *= sizeFactor[Math.min(parseInt(householdSize)-1,2)];
+
+  // Seasonal factor (summer/winter boost)
+  const month = now.getMonth(); // 0=Jan
+  let seasonal = 1;
+  if(month>=3 && month<=5) seasonal = 1.12; // Apr–Jun: summer
+  if(month>=10 || month<=1) seasonal = 1.08; // Nov–Feb: winter
+  pred *= seasonal;
+
+  pred = Math.max(pred, 50);
+
+  // Confidence based on variance
+  const mean = history.reduce((a,b)=>a+b,0)/n;
+  const variance = history.reduce((a,v)=>a+Math.pow(v-mean,2),0)/n;
+  const stdDev = Math.sqrt(variance);
+  const confidenceInterval = (stdDev * 0.8).toFixed(0);
+  const confidence = Math.min(95, Math.max(60, 95 - (stdDev/mean)*40));
+
+  return { predicted: Math.round(pred), ci: parseInt(confidenceInterval)||15, confidence: Math.round(confidence) };
+}
+
+// ─────────────────────────────────────────────
+//  RENDER CHART
+// ─────────────────────────────────────────────
+function renderChart(history, predicted){
+  const labels = [];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-1-i, 1);
+    labels.push(MONTH_NAMES[d.getMonth()]);
+  }
+  const nextMonth = MONTH_NAMES[(now.getMonth()+1)%12];
+  labels.push(nextMonth+' (F)');
+
+  const allData = [...history, predicted];
+  const ctx = document.getElementById('usageChart').getContext('2d');
+
+  if(chartInstance) chartInstance.destroy();
+
+  const gradient = ctx.createLinearGradient(0,0,0,220);
+  gradient.addColorStop(0,'rgba(0,212,255,0.3)');
+  gradient.addColorStop(1,'rgba(0,212,255,0.0)');
+
+  chartInstance = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:'kWh',
+        data: allData,
+        borderColor: '#00d4ff',
+        backgroundColor: gradient,
+        borderWidth:2,
+        pointBackgroundColor: allData.map((_,i)=> i===6 ? '#ff6b35' : '#00d4ff'),
+        pointBorderColor: allData.map((_,i)=> i===6 ? '#ff6b35' : '#00d4ff'),
+        pointRadius: allData.map((_,i)=> i===6 ? 7 : 4),
+        tension:0.4, fill:true,
+        segment:{
+          borderColor: ctx => ctx.p0DataIndex===5 ? '#ff6b35' : '#00d4ff',
+          borderDash: ctx => ctx.p0DataIndex===5 ? [6,4] : []
+        }
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{
+        backgroundColor:'#161d2e', borderColor:'#1e2d45', borderWidth:1,
+        titleColor:'#e8edf5', bodyColor:'#6b7a99',
+        callbacks:{ label: ctx => ` ${ctx.raw} kWh` }
+      }},
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#6b7a99', font:{family:'DM Mono',size:11}} },
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#6b7a99', font:{family:'DM Mono',size:11}}, beginAtZero:false }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+//  RENDER BREAKDOWN
+// ─────────────────────────────────────────────
+function renderBreakdown(result){
+  const list = document.getElementById('breakdown-list');
+  list.innerHTML = '';
+  result.breakdown.forEach(s=>{
+    list.innerHTML += `
+      <div class="breakdown-row">
+        <div><span class="breakdown-slab">${s.name}</span><br/><span style="font-size:11px;color:var(--muted)">${s.units.toFixed(1)} kWh × ₹${s.rate}</span></div>
+        <div class="breakdown-amt">₹${s.charge.toFixed(2)}</div>
+      </div>`;
+  });
+  list.innerHTML += `
+    <div class="breakdown-row"><div class="breakdown-slab">Fixed Charges</div><div class="breakdown-amt">₹${result.fixed}</div></div>
+    <div class="breakdown-row"><div class="breakdown-slab">Fuel Surcharge</div><div class="breakdown-amt">₹${result.fuel.toFixed(2)}</div></div>`;
+  document.getElementById('breakdown-total').textContent = '₹'+result.total.toFixed(2);
+}
+
+// ─────────────────────────────────────────────
+//  APPLIANCE CONTRIBUTION
+// ─────────────────────────────────────────────
+function renderAppliances(totalKWH, acUsage){
+  const acPct = [5,15,25,35];
+  const ac = acPct[parseInt(acUsage)];
+  const apps = [
+    { name:'Air Cond. / Heater', pct:ac, color:'#ff6b35' },
+    { name:'Refrigerator',       pct:18, color:'#00d4ff' },
+    { name:'Lighting',           pct:12, color:'#ffa502' },
+    { name:'Water Heater',       pct:15, color:'#a855f7' },
+    { name:'TV / Electronics',   pct:10, color:'#00ff9d' },
+    { name:'Other Appliances',   pct:Math.max(5, 100-ac-55), color:'#6b7a99' }
+  ];
+  const grid = document.getElementById('appliance-grid');
+  grid.innerHTML = '';
+  apps.forEach(a=>{
+    const kwh = (totalKWH * a.pct/100).toFixed(1);
+    grid.innerHTML += `
+      <div class="app-item">
+        <div class="app-name">${a.name}</div>
+        <div class="app-bar-bg"><div class="app-bar-fill" style="width:${a.pct}%;background:${a.color}"></div></div>
+        <div class="app-val" style="color:${a.color}">${kwh} kWh <span style="font-size:11px;color:var(--muted)">(${a.pct}%)</span></div>
+      </div>`;
+  });
+}
+
+// ─────────────────────────────────────────────
+//  TIPS
+// ─────────────────────────────────────────────
+const ALL_TIPS = [
+  { icon:'❄️', t:'<strong>AC efficiency:</strong> Set your AC to 24°C — each degree lower adds ~6% to consumption.' },
+  { icon:'💡', t:'<strong>Switch to LED:</strong> Replacing 10 incandescent bulbs saves ~50 kWh/month.' },
+  { icon:'🚿', t:'<strong>Water heater:</strong> Use solar geysers or reduce heating time to cut 15–20% of your bill.' },
+  { icon:'🔌', t:'<strong>Standby power:</strong> Unplug devices on standby — they consume up to 10% silently.' },
+  { icon:'🌙', t:'<strong>Off-peak usage:</strong> Run heavy appliances (washing machine, dishwasher) at night.' },
+  { icon:'📊', t:'<strong>Track weekly:</strong> Monthly check-ins help catch unusually high consumption early.' },
+  { icon:'🏠', t:'<strong>Insulation:</strong> Good curtains and window seals reduce AC load significantly in summer.' },
+];
+
+function renderTips(predicted, history){
+  const avg = history.reduce((a,b)=>a+b,0)/history.length;
+  const tips = [];
+  if(predicted > avg * 1.1) tips.push(ALL_TIPS[0], ALL_TIPS[2]);
+  tips.push(ALL_TIPS[1], ALL_TIPS[3], ALL_TIPS[4]);
+  const list = document.getElementById('tips-list');
+  list.innerHTML = tips.slice(0,4).map(t=>
+    `<div class="tip-item"><div class="tip-icon">${t.icon}</div><div class="tip-text">${t.t}</div></div>`
+  ).join('');
+}
+
+// ─────────────────────────────────────────────
+//  MAIN FORECAST RUNNER
+// ─────────────────────────────────────────────
+function runForecast(){
+  const history = getHistory();
+  const currentKWH = parseFloat(document.getElementById('current-kwh').value)||0;
+  const daysElapsed = parseInt(document.getElementById('days-elapsed').value)||18;
+  const tariffKey = document.getElementById('tariff-type').value;
+  const acUsage = document.getElementById('ac-usage').value;
+  const household = document.getElementById('household-size').value;
+  const budget = parseFloat(document.getElementById('budget').value)||0;
+
+  const tariff = TARIFFS[tariffKey];
+
+  // Animate button
+  const btn = document.getElementById('predict-btn');
+  document.getElementById('btn-text').textContent = 'Forecasting…';
+  document.getElementById('btn-loader').classList.add('active');
+  btn.disabled = true;
+
+  setTimeout(()=>{
+    const { predicted, ci, confidence } = forecastKWH(history, currentKWH, daysElapsed, acUsage, household);
+    const result = calcBill(predicted, tariff);
+
+    // Predicted month label
+    const nm = new Date(now.getFullYear(), now.getMonth()+1, 1);
+    document.getElementById('pred-month').textContent = MONTH_NAMES[nm.getMonth()] + ' ' + nm.getFullYear();
+    document.getElementById('pred-units').textContent = predicted;
+
+    // Amount
+    const amt = result.total;
+    document.getElementById('pred-amount').textContent = '₹' + amt.toFixed(0);
+    document.getElementById('pred-interval').textContent = `± ₹${(ci * tariff.slabs[0].rate).toFixed(0)} confidence range`;
+
+    // Confidence bar
+    setTimeout(()=>{ document.getElementById('conf-bar').style.width = confidence+'%'; }, 100);
+
+    // Budget alert
+    const alertBadge = document.getElementById('alert-badge');
+    document.getElementById('budget-display').textContent = budget.toFixed(0);
+    if(amt <= budget){
+      alertBadge.className = 'alert-badge green';
+      document.getElementById('alert-text').textContent = 'Within budget ✓';
+      document.getElementById('overage-text').textContent = '₹'+(budget-amt).toFixed(0)+' headroom';
+      document.getElementById('overage-text').style.color = 'var(--success)';
+    } else if(amt <= budget*1.2){
+      alertBadge.className = 'alert-badge orange';
+      document.getElementById('alert-text').textContent = 'Slightly over budget';
+      document.getElementById('overage-text').textContent = '+₹'+(amt-budget).toFixed(0)+' over';
+      document.getElementById('overage-text').style.color = 'var(--warning)';
+    } else {
+      alertBadge.className = 'alert-badge red';
+      document.getElementById('alert-text').textContent = 'Exceeds budget ⚠';
+      document.getElementById('overage-text').textContent = '+₹'+(amt-budget).toFixed(0)+' over';
+      document.getElementById('overage-text').style.color = 'var(--danger)';
+    }
+
+    // Render all
+    renderChart(history, predicted);
+    renderBreakdown(result);
+    renderAppliances(predicted, acUsage);
+    renderTips(predicted, history);
+    updateStats();
+
+    // Show result
+    document.getElementById('result-section').style.display = 'block';
+    document.getElementById('result-section').scrollIntoView({behavior:'smooth', block:'start'});
+
+    // Reset button
+    document.getElementById('btn-text').textContent = '⚡ Forecast My Bill';
+    document.getElementById('btn-loader').classList.remove('active');
+    btn.disabled = false;
+  }, 900);
+}
+
+// ─────────────────────────────────────────────
+//  RESET
+// ─────────────────────────────────────────────
+function resetForm(){
+  document.getElementById('result-section').style.display = 'none';
+  if(chartInstance){ chartInstance.destroy(); chartInstance=null; }
+}
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+buildHistoryGrid();
+updateStats();
+</script>
+</body>
+</html>
